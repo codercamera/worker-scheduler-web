@@ -31,6 +31,23 @@ export async function ensureSchema() {
       constraint valid_shift_range check (ends_at > starts_at)
     );
 
+    create table if not exists leave_requests (
+      id bigserial primary key,
+      worker_id bigint not null references workers(id) on delete cascade,
+      leave_type text not null default 'annual',
+      starts_on date not null,
+      ends_on date not null,
+      reason text,
+      status text not null default 'pending',
+      manager_note text,
+      created_at timestamptz not null default now(),
+      reviewed_at timestamptz,
+      constraint valid_leave_range check (ends_on >= starts_on),
+      constraint valid_leave_status check (status in ('pending','approved','rejected','cancelled'))
+    );
+
     create index if not exists idx_shifts_worker_time on shifts(worker_id, starts_at, ends_at);
+    create index if not exists idx_leave_worker_dates on leave_requests(worker_id, starts_on, ends_on);
+    create index if not exists idx_leave_status on leave_requests(status);
   `);
 }
