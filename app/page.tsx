@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 type Worker = { id:number; full_name:string; role_title:string|null; email:string|null; weekly_target_hours:number };
 type Shift = { id:number; worker_id:number; title:string; starts_at:string; ends_at:string; status:string; notes:string|null };
-
 type Dashboard = { workers:Worker[]; shifts:Shift[] };
 
 function mondayOf(date: Date) {
@@ -15,7 +14,12 @@ function mondayOf(date: Date) {
   d.setHours(0,0,0,0);
   return d;
 }
-function dateKey(date: Date) { return date.toISOString().slice(0,10); }
+function dateKey(date: Date) {
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,'0');
+  const d=String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
 function fmtTime(value:string){ return new Date(value).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
 
 export default function Home() {
@@ -46,6 +50,13 @@ export default function Home() {
   const scheduledHours=weeklyShifts.reduce((sum,s)=>sum+(new Date(s.ends_at).getTime()-new Date(s.starts_at).getTime())/3600000,0);
   const workersScheduled=new Set(weeklyShifts.map(s=>s.worker_id)).size;
 
+  function openShiftModal(){
+    const firstWorker=data.workers[0];
+    setError('');
+    setShiftForm({worker_id:firstWorker?String(firstWorker.id):'',title:'Shift',date:dateKey(days[0]||new Date()),start:'09:00',end:'17:00',notes:''});
+    setShiftModal(true);
+  }
+
   async function addWorker(e:React.FormEvent){
     e.preventDefault(); setSaving(true); setError('');
     try{
@@ -60,8 +71,11 @@ export default function Home() {
     e.preventDefault(); setSaving(true); setError('');
     try{
       const res=await fetch('/api/shifts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(shiftForm)});
-      const body=await res.json(); if(!res.ok) throw new Error(body.error||'Could not create shift');
-      setShiftModal(false); await load();
+      const body=await res.json();
+      if(!res.ok) throw new Error(body.error||'Could not create shift');
+      setShiftModal(false);
+      setShiftForm({worker_id:'',title:'Shift',date:dateKey(new Date()),start:'09:00',end:'17:00',notes:''});
+      await load();
     }catch(e){setError(e instanceof Error?e.message:'Could not create shift');}
     finally{setSaving(false);}
   }
@@ -83,7 +97,7 @@ export default function Home() {
       <div className="profile"><div className="avatar">AD</div><div><strong>Admin</strong><span>Administrator</span></div></div>
     </aside>
     <section className="content">
-      <header className="topbar"><div><p className="eyebrow">WORKFORCE MANAGEMENT</p><h1>{panel==='schedule'?'Schedule':'Workers'}</h1><p className="subtle">{panel==='schedule'?'Plan shifts, balance hours, and prevent overlaps.':'Manage the people available for scheduling.'}</p></div><div className="top-actions"><button className="secondary" onClick={()=>setWorkerModal(true)}>+ Worker</button>{panel==='schedule'&&<button className="primary" onClick={()=>{setShiftForm(f=>({...f,worker_id:f.worker_id||String(data.workers[0]?.id||''),date:dateKey(days[0])}));setShiftModal(true)}} disabled={!data.workers.length}>+ Add shift</button>}</div></header>
+      <header className="topbar"><div><p className="eyebrow">WORKFORCE MANAGEMENT</p><h1>{panel==='schedule'?'Schedule':'Workers'}</h1><p className="subtle">{panel==='schedule'?'Plan shifts, balance hours, and prevent overlaps.':'Manage the people available for scheduling.'}</p></div><div className="top-actions"><button className="secondary" onClick={()=>setWorkerModal(true)}>+ Worker</button>{panel==='schedule'&&<button className="primary" onClick={openShiftModal} disabled={!data.workers.length}>+ Add shift</button>}</div></header>
       {error&&<div className="error-banner">{error}</div>}
       {loading?<div className="loading">Loading scheduler…</div>:panel==='schedule'?<>
         <section className="stats"><article><span>Scheduled hours</span><strong>{scheduledHours.toFixed(1)}h</strong><small>This week</small></article><article><span>Workers scheduled</span><strong>{workersScheduled}</strong><small>{data.workers.length} total workers</small></article><article><span>Shifts</span><strong>{weeklyShifts.length}</strong><small>Current week</small></article><article><span>Conflicts</span><strong>0</strong><small>Overlaps are blocked</small></article></section>
