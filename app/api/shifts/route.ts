@@ -21,38 +21,21 @@ export async function POST(request:Request){
 
     const start=bangkokDate(date,startText);
     let end=bangkokDate(date,endText);
-    if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())){
-      return NextResponse.json({error:'The date or time is invalid.'},{status:400});
-    }
-
-    // Treat an end time equal to or earlier than start as an overnight shift.
+    if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())) return NextResponse.json({error:'The date or time is invalid.'},{status:400});
     if(end<=start) end=new Date(end.getTime()+24*60*60*1000);
     const durationHours=(end.getTime()-start.getTime())/3600000;
-    if(durationHours<=0||durationHours>24){
-      return NextResponse.json({error:'A shift must be longer than 0 hours and no longer than 24 hours.'},{status:400});
-    }
+    if(durationHours<=0||durationHours>24) return NextResponse.json({error:'A shift must be longer than 0 hours and no longer than 24 hours.'},{status:400});
 
     const worker=await pool.query('select id from workers where id=$1 and active=true',[workerId]);
-    if(!worker.rowCount){
-      return NextResponse.json({error:'That worker no longer exists or is inactive. Refresh and try again.'},{status:400});
-    }
+    if(!worker.rowCount) return NextResponse.json({error:'That worker no longer exists or is inactive. Refresh and try again.'},{status:400});
 
-    const conflict=await pool.query(
-      `select id,title,starts_at,ends_at from shifts
-       where worker_id=$1 and status <> 'cancelled'
-       and starts_at < $3 and ends_at > $2 limit 1`,
-      [workerId,start.toISOString(),end.toISOString()]
-    );
-    if(conflict.rowCount){
-      return NextResponse.json({error:'This worker already has a shift that overlaps this time range.'},{status:409});
-    }
+    const leaveConflict=await pool.query(`select id,leave_type,starts_on,ends_on from leave_requests where worker_id=$1 and status='approved' and starts_on <= ($3::timestamptz at time zone 'Asia/Bangkok')::date and ends_on >= ($2::timestamptz at time zone 'Asia/Bangkok')::date limit 1`,[workerId,start.toISOString(),end.toISOString()]);
+    if(leaveConflict.rowCount) return NextResponse.json({error:'This worker has approved leave during this shift.'},{status:409});
 
-    const result=await pool.query(
-      `insert into shifts(worker_id,title,starts_at,ends_at,notes)
-       values($1,$2,$3,$4,$5)
-       returning id,worker_id,title,starts_at,ends_at,status,notes`,
-      [workerId,title,start.toISOString(),end.toISOString(),String(body.notes||'').trim()||null]
-    );
+    const conflict=await pool.query(`select id,title,starts_at,ends_at from shifts where worker_id=$1 and status <> 'cancelled' and starts_at < $3 and ends_at > $2 limit 1`,[workerId,start.toISOString(),end.toISOString()]);
+    if(conflict.rowCount) return NextResponse.json({error:'This worker already has a shift that overlaps this time range.'},{status:409});
+
+    const result=await pool.query(`insert into shifts(worker_id,title,starts_at,ends_at,notes) values($1,$2,$3,$4,$5) returning id,worker_id,title,starts_at,ends_at,status,notes`,[workerId,title,start.toISOString(),end.toISOString(),String(body.notes||'').trim()||null]);
     return NextResponse.json(result.rows[0],{status:201});
   }catch(error){
     console.error('create shift failed',error);
