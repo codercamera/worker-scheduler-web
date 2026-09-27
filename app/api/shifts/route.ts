@@ -6,8 +6,8 @@ export async function POST(request:Request){
     await ensureSchema();
     const body=await request.json();
     const workerId=Number(body.worker_id);
-    const start=new Date(`${body.date}T${body.start}:00`);
-    const end=new Date(`${body.date}T${body.end}:00`);
+    const start=new Date(`${body.date}T${body.start}:00+07:00`);
+    const end=new Date(`${body.date}T${body.end}:00+07:00`);
     if(!workerId||!body.title?.trim()||Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<=start){
       return NextResponse.json({error:'Enter a valid worker, title, date, and time range'},{status:400});
     }
