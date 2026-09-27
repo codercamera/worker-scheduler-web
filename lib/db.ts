@@ -1,9 +1,7 @@
 import { Pool } from 'pg';
 
 const globalForDb = globalThis as unknown as { pool?: Pool };
-
 export const pool = globalForDb.pool ?? new Pool({ connectionString: process.env.DATABASE_URL });
-
 if (process.env.NODE_ENV !== 'production') globalForDb.pool = pool;
 
 export async function ensureSchema() {
@@ -46,8 +44,21 @@ export async function ensureSchema() {
       constraint valid_leave_status check (status in ('pending','approved','rejected','cancelled'))
     );
 
+    create table if not exists worker_availability (
+      id bigserial primary key,
+      worker_id bigint not null references workers(id) on delete cascade,
+      weekday smallint not null check (weekday between 0 and 6),
+      start_time time not null,
+      end_time time not null,
+      is_available boolean not null default true,
+      note text,
+      created_at timestamptz not null default now(),
+      constraint valid_availability_range check (end_time > start_time)
+    );
+
     create index if not exists idx_shifts_worker_time on shifts(worker_id, starts_at, ends_at);
     create index if not exists idx_leave_worker_dates on leave_requests(worker_id, starts_on, ends_on);
     create index if not exists idx_leave_status on leave_requests(status);
+    create index if not exists idx_availability_worker_weekday on worker_availability(worker_id, weekday);
   `);
 }
