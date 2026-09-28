@@ -1,6 +1,7 @@
 import './globals.css';
 import './accent.css';
 import type { Metadata } from 'next';
+import UserBadge from './user-badge';
 
 export const metadata: Metadata = {
   title: 'Worker Scheduler',
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<UserBadge/></body>
     </html>
   );
 }
