@@ -1,5 +1,6 @@
 import './globals.css';
 import './accent.css';
+import './mobile-header.css';
 import type { Metadata } from 'next';
 import UserBadge from './user-badge';
 import WorkerRowToggle from './worker-row-toggle';
