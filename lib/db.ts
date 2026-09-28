@@ -56,9 +56,34 @@ export async function ensureSchema() {
       constraint valid_availability_range check (end_time > start_time)
     );
 
+    create table if not exists app_users (
+      id bigserial primary key,
+      full_name text not null,
+      email text not null,
+      password_hash text not null,
+      role text not null,
+      active boolean not null default true,
+      worker_id bigint references workers(id) on delete set null,
+      created_at timestamptz not null default now(),
+      updated_at timestamptz not null default now(),
+      constraint app_users_role_check check (role in ('admin','authorizer','hrm','worker'))
+    );
+
+    create unique index if not exists ux_app_users_email_lower on app_users(lower(email));
+
+    create table if not exists user_sessions (
+      id bigserial primary key,
+      user_id bigint not null references app_users(id) on delete cascade,
+      token_hash text not null unique,
+      expires_at timestamptz not null,
+      created_at timestamptz not null default now()
+    );
+
     create index if not exists idx_shifts_worker_time on shifts(worker_id, starts_at, ends_at);
     create index if not exists idx_leave_worker_dates on leave_requests(worker_id, starts_on, ends_on);
     create index if not exists idx_leave_status on leave_requests(status);
     create index if not exists idx_availability_worker_weekday on worker_availability(worker_id, weekday);
+    create index if not exists idx_user_sessions_user on user_sessions(user_id);
+    create index if not exists idx_user_sessions_expiry on user_sessions(expires_at);
   `);
 }
