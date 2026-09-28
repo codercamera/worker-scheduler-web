@@ -69,7 +69,23 @@ export async function ensureSchema() {
       constraint app_users_role_check check (role in ('admin','authorizer','hrm','worker'))
     );
 
+    update app_users set worker_id=null where worker_id is not null and role<>'worker';
+
+    with ranked as (
+      select id,row_number() over(partition by worker_id order by created_at asc,id asc) as rn
+      from app_users where worker_id is not null
+    )
+    update app_users u set worker_id=null from ranked r where u.id=r.id and r.rn>1;
+
+    do $$
+    begin
+      if not exists(select 1 from pg_constraint where conname='app_users_worker_role_check') then
+        alter table app_users add constraint app_users_worker_role_check check (worker_id is null or role='worker');
+      end if;
+    end $$;
+
     create unique index if not exists ux_app_users_email_lower on app_users(lower(email));
+    create unique index if not exists ux_app_users_worker_id on app_users(worker_id) where worker_id is not null;
 
     create table if not exists user_sessions (
       id bigserial primary key,
