@@ -4,10 +4,11 @@ import {requireUser} from '@/lib/auth';
 
 function bangkokDate(date:string,time:string){return new Date(`${date}T${time}:00+07:00`)}
 function weekdayBangkok(date:string){return new Date(`${date}T12:00:00+07:00`).getUTCDay()}
+async function requireShiftManager(){const user=await requireUser();if(user.role==='worker')throw new Error('FORBIDDEN');return user}
 
 export async function POST(request:Request){
   try{
-    await requireUser();
+    await requireShiftManager();
     await ensureSchema();
     const body=await request.json();
     const workerId=Number(body.worker_id);const title=String(body.title||'').trim();const date=String(body.date||'');const startText=String(body.start||'');const endText=String(body.end||'');
@@ -35,10 +36,10 @@ export async function POST(request:Request){
     if(conflict.rowCount) return NextResponse.json({error:'This worker already has a shift that overlaps this time range.'},{status:409});
     const result=await pool.query(`insert into shifts(worker_id,title,starts_at,ends_at,notes) values($1,$2,$3,$4,$5) returning id,worker_id,title,starts_at,ends_at,status,notes`,[workerId,title,start.toISOString(),end.toISOString(),String(body.notes||'').trim()||null]);
     return NextResponse.json(result.rows[0],{status:201});
-  }catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});console.error('create shift failed',error);return NextResponse.json({error:'Could not create shift. Please try again.'},{status:500});}
+  }catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});if(error instanceof Error&&error.message==='FORBIDDEN')return NextResponse.json({error:'Workers have read-only schedule access'},{status:403});console.error('create shift failed',error);return NextResponse.json({error:'Could not create shift. Please try again.'},{status:500});}
 }
 
 export async function DELETE(request:Request){
-  try{await requireUser();await ensureSchema();const id=Number(new URL(request.url).searchParams.get('id'));if(!id)return NextResponse.json({error:'Invalid shift id'},{status:400});await pool.query('delete from shifts where id=$1',[id]);return NextResponse.json({ok:true});}
-  catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});console.error(error);return NextResponse.json({error:'Could not delete shift'},{status:500});}
+  try{await requireShiftManager();await ensureSchema();const id=Number(new URL(request.url).searchParams.get('id'));if(!id)return NextResponse.json({error:'Invalid shift id'},{status:400});await pool.query('delete from shifts where id=$1',[id]);return NextResponse.json({ok:true});}
+  catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});if(error instanceof Error&&error.message==='FORBIDDEN')return NextResponse.json({error:'Workers have read-only schedule access'},{status:403});console.error(error);return NextResponse.json({error:'Could not delete shift'},{status:500});}
 }
