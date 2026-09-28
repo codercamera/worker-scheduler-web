@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { ensureSchema, pool } from '@/lib/db';
+import {requireUser} from '@/lib/auth';
 
 export async function POST(request:Request){
   try{
+    await requireUser();
     await ensureSchema();
     const body=await request.json();
     const workerId=Number(body.worker_id);
@@ -24,6 +26,7 @@ export async function POST(request:Request){
     const result=await pool.query(`insert into leave_requests(worker_id,leave_type,starts_on,ends_on,reason) values($1,$2,$3,$4,$5) returning *`,[workerId,leaveType||'annual',startsOn,endsOn,reason||null]);
     return NextResponse.json(result.rows[0],{status:201});
   }catch(error){
+    if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});
     console.error('create leave failed',error);
     return NextResponse.json({error:'Could not create leave request.'},{status:500});
   }
@@ -31,6 +34,7 @@ export async function POST(request:Request){
 
 export async function PATCH(request:Request){
   try{
+    await requireUser();
     await ensureSchema();
     const body=await request.json();
     const id=Number(body.id);
@@ -50,6 +54,7 @@ export async function PATCH(request:Request){
     const result=await pool.query(`update leave_requests set status=$2, manager_note=$3, reviewed_at=now() where id=$1 returning *`,[id,status,managerNote||null]);
     return NextResponse.json(result.rows[0]);
   }catch(error){
+    if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});
     console.error('update leave failed',error);
     return NextResponse.json({error:'Could not update leave request.'},{status:500});
   }
