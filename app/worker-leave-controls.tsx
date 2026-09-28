@@ -12,9 +12,12 @@ export default function WorkerLeaveControls(){
   const [reason,setReason]=useState('');
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
+  const [isThai,setIsThai]=useState(false);
 
   useEffect(()=>{
-    let observer:MutationObserver|undefined;
+    setIsThai(document.documentElement.lang==='th');
+    const langObserver=new MutationObserver(()=>setIsThai(document.documentElement.lang==='th'));
+    langObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
     let active=true;
     async function init(){
       const auth=await fetch('/api/auth/status',{cache:'no-store'}).then(r=>r.json());
@@ -25,7 +28,7 @@ export default function WorkerLeaveControls(){
       setLeaves(data.leaveRequests||[]);
     }
     init().catch(()=>{});
-    return()=>{active=false;observer?.disconnect()};
+    return()=>{active=false;langObserver.disconnect()};
   },[]);
 
   useEffect(()=>{
@@ -42,14 +45,14 @@ export default function WorkerLeaveControls(){
           const btn=document.createElement('button');
           btn.type='button';
           btn.className='worker-cancel-btn reject-btn';
-          btn.textContent=document.documentElement.lang==='th'?'ยกเลิกคำขอ':'Cancel request';
+          btn.textContent=isThai?'ยกเลิกคำขอ':'Cancel request';
           btn.onclick=()=>{setTarget(leave);setReason('');setError('')};
           actions.appendChild(btn);
         }
         if(leave.status==='cancelled'&&leave.cancellation_reason){
           let note=row.querySelector<HTMLElement>('.worker-cancel-reason');
           if(!note){note=document.createElement('div');note.className='worker-cancel-reason';row.appendChild(note)}
-          note.textContent=(document.documentElement.lang==='th'?'เหตุผลที่ยกเลิก: ':'Cancellation reason: ')+leave.cancellation_reason;
+          note.textContent=(isThai?'เหตุผลที่ยกเลิก: ':'Cancellation reason: ')+leave.cancellation_reason;
         }
       });
 
@@ -71,7 +74,7 @@ export default function WorkerLeaveControls(){
     const observer=new MutationObserver(sync);
     observer.observe(document.body,{childList:true,subtree:true});
     return()=>observer.disconnect();
-  },[user,leaves]);
+  },[user,leaves,isThai]);
 
   if(!user||user.role!=='worker')return null;
 
@@ -88,14 +91,14 @@ export default function WorkerLeaveControls(){
 
   return target?<div className="modal-backdrop" onMouseDown={()=>!saving&&setTarget(null)}>
     <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{width:'min(480px,100%)'}}>
-      <div className="modal-head"><div><h2>{document.documentElement.lang==='th'?'ยกเลิกคำขอลา':'Cancel leave request'}</h2><p className="subtle">{target.worker_name}</p></div><button className="icon-btn" onClick={()=>setTarget(null)} disabled={saving}>×</button></div>
+      <div className="modal-head"><div><h2>{isThai?'ยกเลิกคำขอลา':'Cancel leave request'}</h2><p className="subtle">{target.worker_name}</p></div><button className="icon-btn" onClick={()=>setTarget(null)} disabled={saving}>×</button></div>
       <div style={{padding:'12px 14px',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)'}}>
         <strong>{target.starts_on.slice(0,10)} – {target.ends_on.slice(0,10)}</strong>
         {target.reason&&<span style={{display:'block',marginTop:5,fontSize:12,color:'var(--muted)'}}>{target.reason}</span>}
       </div>
-      <label>{document.documentElement.lang==='th'?'เหตุผลที่ยกเลิก':'Cancellation reason'}<textarea rows={4} value={reason} onChange={e=>setReason(e.target.value)} placeholder={document.documentElement.lang==='th'?'กรุณาระบุเหตุผล':'Please provide a reason'} /></label>
+      <label>{isThai?'เหตุผลที่ยกเลิก':'Cancellation reason'}<textarea rows={4} value={reason} onChange={e=>setReason(e.target.value)} placeholder={isThai?'กรุณาระบุเหตุผล':'Please provide a reason'} /></label>
       {error&&<div className="error-banner" style={{marginTop:0}}>{error}</div>}
-      <div className="modal-actions"><button className="secondary" onClick={()=>setTarget(null)} disabled={saving}>{document.documentElement.lang==='th'?'กลับ':'Back'}</button><button className="reject-btn" onClick={cancelLeave} disabled={saving||!reason.trim()}>{saving?(document.documentElement.lang==='th'?'กำลังยกเลิก…':'Cancelling…'):(document.documentElement.lang==='th'?'ยืนยันยกเลิก':'Confirm cancellation')}</button></div>
+      <div className="modal-actions"><button className="secondary" onClick={()=>setTarget(null)} disabled={saving}>{isThai?'กลับ':'Back'}</button><button className="reject-btn" onClick={cancelLeave} disabled={saving||!reason.trim()}>{saving?(isThai?'กำลังยกเลิก…':'Cancelling…'):(isThai?'ยืนยันยกเลิก':'Confirm cancellation')}</button></div>
     </div>
   </div>:null;
 }
