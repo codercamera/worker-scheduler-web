@@ -38,11 +38,14 @@ export async function ensureSchema() {
       reason text,
       status text not null default 'pending',
       manager_note text,
+      cancellation_reason text,
       created_at timestamptz not null default now(),
       reviewed_at timestamptz,
       constraint valid_leave_range check (ends_on >= starts_on),
       constraint valid_leave_status check (status in ('pending','approved','rejected','cancelled'))
     );
+
+    alter table leave_requests add column if not exists cancellation_reason text;
 
     create table if not exists worker_availability (
       id bigserial primary key,
