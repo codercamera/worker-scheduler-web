@@ -2,6 +2,7 @@ import './globals.css';
 import './accent.css';
 import type { Metadata } from 'next';
 import UserBadge from './user-badge';
+import WorkerRowToggle from './worker-row-toggle';
 
 export const metadata: Metadata = {
   title: 'Worker Scheduler',
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}<UserBadge/></body>
+      <body>{children}<UserBadge/><WorkerRowToggle/></body>
     </html>
   );
 }
