@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { ensureSchema, pool } from '@/lib/db';
+import {requireUser} from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(){
   try{
+    await requireUser();
     await ensureSchema();
     const [workers,shifts,leaveRequests,availability]=await Promise.all([
       pool.query(`select id, full_name, role_title, email, weekly_target_hours::float8 as weekly_target_hours from workers where active = true order by full_name`),
@@ -13,5 +15,8 @@ export async function GET(){
       pool.query(`select wa.id, wa.worker_id, wa.weekday, to_char(wa.start_time,'HH24:MI') as start_time, to_char(wa.end_time,'HH24:MI') as end_time, wa.is_available, wa.note, w.full_name as worker_name from worker_availability wa join workers w on w.id=wa.worker_id order by w.full_name, wa.weekday, wa.start_time`)
     ]);
     return NextResponse.json({workers:workers.rows,shifts:shifts.rows,leaveRequests:leaveRequests.rows,availability:availability.rows});
-  }catch(error){console.error(error);return NextResponse.json({error:'Database unavailable'}, {status:500});}
+  }catch(error){
+    if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});
+    console.error(error);return NextResponse.json({error:'Database unavailable'}, {status:500});
+  }
 }
