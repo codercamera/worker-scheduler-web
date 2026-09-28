@@ -4,6 +4,7 @@ import './mobile-header.css';
 import type { Metadata } from 'next';
 import UserBadge from './user-badge';
 import WorkerRowToggle from './worker-row-toggle';
+import WorkerLeaveControls from './worker-leave-controls';
 import {getCurrentUser} from '@/lib/auth';
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const user=await getCurrentUser();
   return (
     <html lang="en">
-      <body data-role={user?.role??'guest'}>{children}<UserBadge/><WorkerRowToggle/></body>
+      <body data-role={user?.role??'guest'}>{children}<UserBadge/><WorkerRowToggle/><WorkerLeaveControls/></body>
     </html>
   );
 }
