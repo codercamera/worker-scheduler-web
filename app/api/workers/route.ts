@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { ensureSchema, pool } from '@/lib/db';
+import {requireUser} from '@/lib/auth';
 
 export async function POST(request:Request){
   try{
+    await requireUser();
     await ensureSchema();
     const body=await request.json();
     if(!body.full_name?.trim()) return NextResponse.json({error:'Full name is required'},{status:400});
@@ -12,6 +14,7 @@ export async function POST(request:Request){
     ]);
     return NextResponse.json(result.rows[0],{status:201});
   }catch(error){
+    if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});
     console.error(error);
     return NextResponse.json({error:'Could not create worker'},{status:500});
   }
