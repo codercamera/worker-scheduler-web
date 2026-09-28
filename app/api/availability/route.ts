@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { ensureSchema, pool } from '@/lib/db';
+import {requireUser} from '@/lib/auth';
 
 export async function POST(request:Request){
   try{
+    await requireUser();
     await ensureSchema();
     const body=await request.json();
     const workerId=Number(body.worker_id); const weekday=Number(body.weekday);
@@ -17,15 +19,16 @@ export async function POST(request:Request){
     if(overlap.rowCount) return NextResponse.json({error:'This availability range overlaps an existing range.'},{status:409});
     const result=await pool.query(`insert into worker_availability(worker_id,weekday,start_time,end_time,is_available,note) values($1,$2,$3,$4,$5,$6) returning *`,[workerId,weekday,start,end,isAvailable,String(body.note||'').trim()||null]);
     return NextResponse.json(result.rows[0],{status:201});
-  }catch(error){console.error(error);return NextResponse.json({error:'Could not save availability.'},{status:500});}
+  }catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});console.error(error);return NextResponse.json({error:'Could not save availability.'},{status:500});}
 }
 
 export async function DELETE(request:Request){
   try{
+    await requireUser();
     await ensureSchema();
     const id=Number(new URL(request.url).searchParams.get('id'));
     if(!id) return NextResponse.json({error:'Invalid availability id'},{status:400});
     await pool.query('delete from worker_availability where id=$1',[id]);
     return NextResponse.json({ok:true});
-  }catch(error){console.error(error);return NextResponse.json({error:'Could not delete availability.'},{status:500});}
+  }catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});console.error(error);return NextResponse.json({error:'Could not delete availability.'},{status:500});}
 }
