@@ -81,16 +81,16 @@ export default function LeaveReviewControls(){
 
   return <div className="modal-backdrop" onMouseDown={close}>
     <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{width:'min(520px,100%)'}}>
-      <div className="modal-head"><div><h2>{isThai?(approving?'ยืนยันอนุมัติการลา':'ยืนยันไม่อนุมัติการลา'):(approving?'Confirm leave approval':'Confirm leave rejection')}</h2><p className="subtle" style={{marginTop:5}}>{isThai?'ตรวจสอบรายละเอียดก่อนยืนยัน':'Review the request before confirming.'}</p></div><button type="button" className="icon-btn" onClick={close} disabled={saving}>×</button></div>
+      <div className="modal-head"><div><h2>{isThai?(approving?'ยืนยันอนุมัติการลา':'ยืนยันไม่อนุมัติการลา'):(approving?'Confirm leave approval':'Confirm leave rejection')}</h2><p className="subtle" style={{marginTop:5}}>{isThai?'ตรวจสอบรายละเอียดและใส่เหตุผลได้ถ้าต้องการ':'Review the request and optionally add a reason before confirming.'}</p></div><button type="button" className="icon-btn" onClick={close} disabled={saving}>×</button></div>
       <div style={{display:'grid',gap:6,padding:'14px',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)'}}>
         <strong>{currentTarget.leave.worker_name}</strong>
         <span style={{fontSize:12,color:'var(--muted)'}}>{currentTarget.leave.starts_on.slice(0,10)} – {currentTarget.leave.ends_on.slice(0,10)}</span>
         <span style={{fontSize:12,color:'var(--muted)',textTransform:'capitalize'}}>{currentTarget.leave.leave_type}</span>
         {currentTarget.leave.reason&&<span style={{fontSize:12,color:'var(--muted)'}}>{isThai?'เหตุผลการลา: ':'Leave reason: '}{currentTarget.leave.reason}</span>}
       </div>
-      <label>{isThai?'เหตุผล / หมายเหตุ (ไม่บังคับ)':'Reason / note (optional)'}<textarea rows={4} value={note} onChange={e=>setNote(e.target.value)} placeholder={isThai?'เพิ่มเหตุผลหรือหมายเหตุได้ตามต้องการ':'Add an optional reason or manager note'} /></label>
+      <label>{isThai?'เหตุผลการตัดสินใจ (ไม่บังคับ)':'Decision reason (optional)'}<textarea rows={4} maxLength={1000} value={note} onChange={e=>setNote(e.target.value)} placeholder={isThai?(approving?'เพิ่มหมายเหตุสำหรับการอนุมัติ':'เพิ่มเหตุผลสำหรับการไม่อนุมัติ'):(approving?'Add an optional approval note':'Add an optional rejection reason')} /></label>
       {error&&<div className="error-banner" style={{marginTop:0}}>{error}</div>}
-      <div className="modal-actions"><button type="button" className="secondary" onClick={close} disabled={saving}>{isThai?'ยกเลิก':'Cancel'}</button><button type="button" className={approving?'approve-btn':'reject-btn'} onClick={confirmReview} disabled={saving}>{saving?(isThai?'กำลังบันทึก…':'Saving…'):(isThai?(approving?'ยืนยันอนุมัติ':'ยืนยันไม่อนุมัติ'):(approving?'Approve leave':'Reject leave'))}</button></div>
+      <div className="modal-actions"><button type="button" className="secondary" onClick={close} disabled={saving}>{isThai?'ยกเลิก':'Cancel'}</button><button type="button" className={approving?'approve-btn':'reject-btn'} onClick={confirmReview} disabled={saving}>{saving?(isThai?'กำลังบันทึก…':'Saving…'):(isThai?(approving?'ยืนยันอนุมัติ':'ยืนยันไม่อนุมัติ'):(approving?'Confirm approval':'Confirm rejection'))}</button></div>
     </div>
   </div>;
 }
