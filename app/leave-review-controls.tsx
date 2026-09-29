@@ -65,13 +65,14 @@ export default function LeaveReviewControls(){
 
   if(!user||user.role==='worker'||!target)return null;
 
-  const approving=target.status==='approved';
+  const currentTarget=target;
+  const approving=currentTarget.status==='approved';
   const close=()=>{if(!saving){setTarget(null);setNote('');setError('')}};
 
   async function confirmReview(){
     setSaving(true);setError('');
     try{
-      const r=await fetch('/api/leave',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:target.leave.id,status:target.status,manager_note:note.trim()||null})});
+      const r=await fetch('/api/leave',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:currentTarget.leave.id,status:currentTarget.status,manager_note:note.trim()||null})});
       const b=await r.json();
       if(!r.ok)throw new Error(b.error||'Could not update leave request.');
       window.location.reload();
@@ -82,10 +83,10 @@ export default function LeaveReviewControls(){
     <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{width:'min(520px,100%)'}}>
       <div className="modal-head"><div><h2>{isThai?(approving?'ยืนยันอนุมัติการลา':'ยืนยันไม่อนุมัติการลา'):(approving?'Confirm leave approval':'Confirm leave rejection')}</h2><p className="subtle" style={{marginTop:5}}>{isThai?'ตรวจสอบรายละเอียดก่อนยืนยัน':'Review the request before confirming.'}</p></div><button type="button" className="icon-btn" onClick={close} disabled={saving}>×</button></div>
       <div style={{display:'grid',gap:6,padding:'14px',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)'}}>
-        <strong>{target.leave.worker_name}</strong>
-        <span style={{fontSize:12,color:'var(--muted)'}}>{target.leave.starts_on.slice(0,10)} – {target.leave.ends_on.slice(0,10)}</span>
-        <span style={{fontSize:12,color:'var(--muted)',textTransform:'capitalize'}}>{target.leave.leave_type}</span>
-        {target.leave.reason&&<span style={{fontSize:12,color:'var(--muted)'}}>{isThai?'เหตุผลการลา: ':'Leave reason: '}{target.leave.reason}</span>}
+        <strong>{currentTarget.leave.worker_name}</strong>
+        <span style={{fontSize:12,color:'var(--muted)'}}>{currentTarget.leave.starts_on.slice(0,10)} – {currentTarget.leave.ends_on.slice(0,10)}</span>
+        <span style={{fontSize:12,color:'var(--muted)',textTransform:'capitalize'}}>{currentTarget.leave.leave_type}</span>
+        {currentTarget.leave.reason&&<span style={{fontSize:12,color:'var(--muted)'}}>{isThai?'เหตุผลการลา: ':'Leave reason: '}{currentTarget.leave.reason}</span>}
       </div>
       <label>{isThai?'เหตุผล / หมายเหตุ (ไม่บังคับ)':'Reason / note (optional)'}<textarea rows={4} value={note} onChange={e=>setNote(e.target.value)} placeholder={isThai?'เพิ่มเหตุผลหรือหมายเหตุได้ตามต้องการ':'Add an optional reason or manager note'} /></label>
       {error&&<div className="error-banner" style={{marginTop:0}}>{error}</div>}
