@@ -33,6 +33,7 @@ export default function WorkerLeaveControls(){
 
   useEffect(()=>{
     if(!user||user.role!=='worker')return;
+    const workerUser=user;
     function sync(){
       const rows=Array.from(document.querySelectorAll<HTMLElement>('.leave-card .leave-row'));
       rows.forEach((row,index)=>{
@@ -60,8 +61,8 @@ export default function WorkerLeaveControls(){
         const heading=modal.querySelector('h2')?.textContent?.trim().toLowerCase();
         if(heading==='request leave'||heading==='ขอลางาน'){
           const select=modal.querySelector<HTMLSelectElement>('select');
-          if(select&&user.worker_id){
-            select.value=String(user.worker_id);
+          if(select&&workerUser.worker_id){
+            select.value=String(workerUser.worker_id);
             select.dispatchEvent(new Event('change',{bubbles:true}));
             select.disabled=true;
             const label=select.closest('label');
