@@ -39,6 +39,62 @@ export async function POST(request:Request){
   }catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});if(error instanceof Error&&error.message==='FORBIDDEN')return NextResponse.json({error:'Workers have read-only schedule access'},{status:403});console.error('create shift failed',error);return NextResponse.json({error:'Could not create shift. Please try again.'},{status:500});}
 }
 
+
+export async function PATCH(request:Request){
+  try{
+    await requireShiftManager();
+    await ensureSchema();
+    const body=await request.json();
+    const id=Number(body.id);
+    const workerId=Number(body.worker_id);
+    const date=String(body.date||'');
+    if(!id||!workerId||!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({error:'Choose a valid shift, worker, and date.'},{status:400});
+
+    const existing=await pool.query(`select id,title,notes,
+      to_char(starts_at at time zone 'Asia/Bangkok','HH24:MI') as start_text,
+      to_char(ends_at at time zone 'Asia/Bangkok','HH24:MI') as end_text,
+      ((ends_at-starts_at)/interval '1 millisecond')::bigint as duration_ms
+      from shifts where id=$1 and status <> 'cancelled' limit 1`,[id]);
+    if(!existing.rowCount) return NextResponse.json({error:'Shift not found.'},{status:404});
+    const current=existing.rows[0];
+    const startText=String(current.start_text).slice(0,5);
+    const start=bangkokDate(date,startText);
+    const durationMs=Number(current.duration_ms);
+    const end=new Date(start.getTime()+durationMs);
+    const endText=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hour12:false}).format(end);
+    const durationHours=durationMs/3600000;
+    if(!Number.isFinite(durationHours)||durationHours<=0||durationHours>24) return NextResponse.json({error:'This shift has an invalid duration.'},{status:400});
+
+    const worker=await pool.query('select id from workers where id=$1 and active=true',[workerId]);
+    if(!worker.rowCount) return NextResponse.json({error:'That worker no longer exists or is inactive. Refresh and try again.'},{status:400});
+
+    const leaveConflict=await pool.query(`select id from leave_requests where worker_id=$1 and status='approved' and starts_on <= ($3::timestamptz at time zone 'Asia/Bangkok')::date and ends_on >= ($2::timestamptz at time zone 'Asia/Bangkok')::date limit 1`,[workerId,start.toISOString(),end.toISOString()]);
+    if(leaveConflict.rowCount) return NextResponse.json({error:'This worker has approved leave during this shift.'},{status:409});
+
+    const weekday=weekdayBangkok(date);
+    const availability=await pool.query(`select start_time::text,end_time::text,is_available from worker_availability where worker_id=$1 and weekday=$2 order by start_time`,[workerId,weekday]);
+    if(availability.rowCount){
+      const availableRows=availability.rows.filter(r=>r.is_available);
+      const unavailableRows=availability.rows.filter(r=>!r.is_available);
+      const sameDayEnd=end.toLocaleDateString('en-CA',{timeZone:'Asia/Bangkok'})===date;
+      const fitsAvailable=availableRows.length===0||availableRows.some(r=>sameDayEnd&&startText>=String(r.start_time).slice(0,5)&&endText<=String(r.end_time).slice(0,5));
+      const hitsUnavailable=unavailableRows.some(r=>sameDayEnd&&startText<String(r.end_time).slice(0,5)&&endText>String(r.start_time).slice(0,5));
+      if(!fitsAvailable||hitsUnavailable) return NextResponse.json({error:'This shift is outside the worker’s availability.'},{status:409});
+    }
+
+    const conflict=await pool.query(`select id from shifts where id<>$4 and worker_id=$1 and status <> 'cancelled' and starts_at < $3 and ends_at > $2 limit 1`,[workerId,start.toISOString(),end.toISOString(),id]);
+    if(conflict.rowCount) return NextResponse.json({error:'This worker already has a shift that overlaps this time range.'},{status:409});
+
+    const result=await pool.query(`update shifts set worker_id=$2,starts_at=$3,ends_at=$4 where id=$1 returning id,worker_id,title,starts_at,ends_at,status,notes`,[id,workerId,start.toISOString(),end.toISOString()]);
+    return NextResponse.json(result.rows[0]);
+  }catch(error){
+    if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});
+    if(error instanceof Error&&error.message==='FORBIDDEN')return NextResponse.json({error:'Workers have read-only schedule access'},{status:403});
+    console.error('move shift failed',error);
+    return NextResponse.json({error:'Could not move shift. Please try again.'},{status:500});
+  }
+}
+
 export async function DELETE(request:Request){
   try{await requireShiftManager();await ensureSchema();const id=Number(new URL(request.url).searchParams.get('id'));if(!id)return NextResponse.json({error:'Invalid shift id'},{status:400});await pool.query('delete from shifts where id=$1',[id]);return NextResponse.json({ok:true});}
   catch(error){if(error instanceof Error&&error.message==='UNAUTHORIZED')return NextResponse.json({error:'Unauthorized'},{status:401});if(error instanceof Error&&error.message==='FORBIDDEN')return NextResponse.json({error:'Workers have read-only schedule access'},{status:403});console.error(error);return NextResponse.json({error:'Could not delete shift'},{status:500});}
