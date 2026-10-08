@@ -48,7 +48,8 @@ export async function PATCH(request:Request){
     const id=Number(body.id);
     const workerId=Number(body.worker_id);
     const date=String(body.date||'');
-    if(!id||!workerId||!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NextResponse.json({error:'Choose a valid shift, worker, and date.'},{status:400});
+    const requestedStartText=String(body.start||'');
+    if(!id||!workerId||!/^\d{4}-\d{2}-\d{2}$/.test(date)||(requestedStartText&&!/^\d{2}:\d{2}$/.test(requestedStartText))) return NextResponse.json({error:'Choose a valid shift, worker, date, and start time.'},{status:400});
 
     const existing=await pool.query(`select id,title,notes,
       to_char(starts_at at time zone 'Asia/Bangkok','HH24:MI') as start_text,
@@ -57,7 +58,7 @@ export async function PATCH(request:Request){
       from shifts where id=$1 and status <> 'cancelled' limit 1`,[id]);
     if(!existing.rowCount) return NextResponse.json({error:'Shift not found.'},{status:404});
     const current=existing.rows[0];
-    const startText=String(current.start_text).slice(0,5);
+    const startText=requestedStartText||String(current.start_text).slice(0,5);
     const start=bangkokDate(date,startText);
     const durationMs=Number(current.duration_ms);
     const end=new Date(start.getTime()+durationMs);
