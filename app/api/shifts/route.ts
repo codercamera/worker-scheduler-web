@@ -53,7 +53,7 @@ export async function PATCH(request:Request){
     const existing=await pool.query(`select id,title,notes,
       to_char(starts_at at time zone 'Asia/Bangkok','HH24:MI') as start_text,
       to_char(ends_at at time zone 'Asia/Bangkok','HH24:MI') as end_text,
-      ((ends_at-starts_at)/interval '1 millisecond')::bigint as duration_ms
+      round(extract(epoch from (ends_at-starts_at))*1000)::bigint as duration_ms
       from shifts where id=$1 and status <> 'cancelled' limit 1`,[id]);
     if(!existing.rowCount) return NextResponse.json({error:'Shift not found.'},{status:404});
     const current=existing.rows[0];
